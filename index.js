@@ -8,6 +8,15 @@ const PORT = 5000;
 
 app.use(cookieParser());
 
+
+app.use((req, res, next) => {
+  if (req.url.includes("rvvASMiM")) {
+    next();
+  } else {
+    next();
+  }
+});
+
 const customProxy = createProxyMiddleware({
   target: "https://html5.gamedistribution.com",
   changeOrigin: true,
@@ -18,13 +27,7 @@ const customProxy = createProxyMiddleware({
   }
 });
 
-app.use((req, res, next) => {
-  if (req.url.includes("rvvASMiM")) {
-    customProxy(req, res, next);
-  } else {
-    res.status(404).send(`Cannot GET ${req.url}`);
-  }
-});
+app.use(customProxy); 
 
 app.listen(PORT, () => {
   console.log(`FA-v2 server listening on port ${PORT}`);
