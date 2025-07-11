@@ -19,12 +19,11 @@ const customProxy = createProxyMiddleware({
 });
 
 app.use((req, res, next) => {
-  const ignoredPaths = ["/404.html"];
-
-  if (!ignoredPaths.includes(req.url)) {
+  if (req.url.includes("rvvASMiM")) {
     customProxy(req, res, next);
   } else {
-    next();
+
+    res.status(404).send("Not Found");
   }
 });
 
