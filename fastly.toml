@@ -1,0 +1,23 @@
+[setup]
+default_host = "arsenic.smartfoloo.space"
+
+default_backend = "origin"
+
+[backend "origin"]
+host = "66.179.254.164"
+port = 443
+use_ssl = true
+
+[logging "stdout"]
+type = "stdout"
+format = "{\"timestamp\": \"%{time.start}V\", \"method\": \"%m\", \"url\": \"%{req.url}V\", \"status\": \"%s\"}"
+
+[local_server]
+command = "node src/index.js"
+
+[edge]
+type = "nodejs"
+main = "src/index.js"
+
+[build]
+build_command = "npm install && npm start"
