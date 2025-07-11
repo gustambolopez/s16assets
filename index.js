@@ -22,8 +22,7 @@ app.use((req, res, next) => {
   if (req.url.includes("rvvASMiM")) {
     customProxy(req, res, next);
   } else {
-
-    res.status(404).send("Not Found");
+    res.status(404).send(`Cannot GET ${req.url}`);
   }
 });
 
