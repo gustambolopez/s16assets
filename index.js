@@ -22,7 +22,7 @@ const proxy = createProxyMiddleware({
     const bypass = '?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
 
     // shitty bypass 
-    if (req.url.startsWith('/src') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
+    if (req.url.startsWith('/id') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
       proxyReq.path += (proxyReq.path.includes('?') ? '&' : '') + bypass.slice(1);
     }
 
@@ -37,7 +37,7 @@ const proxy = createProxyMiddleware({
 
       const blockedRedirect = 'https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app';
 
-      // 
+      // block redirects from game db
       if (loc.includes(blockedRedirect)) {
         console.warn(`Blocked redirect: ${loc}`);
         delete proxyRes.headers.location;
@@ -52,7 +52,7 @@ const proxy = createProxyMiddleware({
         const fullRedirect = new URL(loc, targetOrigin);
 
         if (fullRedirect.origin === proxy.target) {
-          const newPath = fullRedirect.pathname.replace(/^\/rvvASMiM/, '/src');
+          const newPath = fullRedirect.pathname.replace(/^\/rvvASMiM/, '/id');
           const newUrl = `${req.protocol}://${req.get('host')}${newPath}${fullRedirect.search}`;
           proxyRes.headers.location = newUrl;
           console.log(`Rewriting redirect: ${loc} -> ${newUrl}`);
@@ -64,13 +64,13 @@ const proxy = createProxyMiddleware({
   },
 
   pathRewrite: {
-    '^/src': '/rvvASMiM',
+    '^/id': '/rvvASMiM',
   },
 });
 
 // block all paths but /src
 app.use((req, res, next) => {
-  if (req.url.startsWith('/src')) {
+  if (req.url.startsWith('/id')) {
     proxy(req, res, next);
   } else {
     res.status(404).send(`Cannot GET ${req.url}`);
