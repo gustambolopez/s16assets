@@ -15,11 +15,14 @@ const customProxy = createProxyMiddleware({
     storedCookies.forEach((cookie) => {
       proxyReq.setHeader("cookie", `${cookie.name}=${cookie.value}`);
     });
-  }
+  },
+  pathRewrite: {
+    '^/src': '/rvvASMiM',
+  },
 });
 
-app.use((req, res, next) => {
-  if (req.url.includes("rvvASMiM")) {
+app.use((req, res, next) => {.
+  if (req.url.startsWith('/src')) {
     customProxy(req, res, next);
   } else {
     res.status(404).send(`Cannot GET ${req.url}`);
