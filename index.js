@@ -1,110 +1,82 @@
-// Change require to import for all modules
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-
+// s16dih
 const app = express();
-const storedCookies = [];
 const PORT = 5000;
+const storedCookies = [];
 
 app.use(cookieParser());
 
-const customProxy = createProxyMiddleware({
-  target: "https://html5.gamedistribution.com",
+// middleware 
+const proxy = createProxyMiddleware({
+  target: 'https://html5.gamedistribution.com',
   changeOrigin: true,
   ws: true,
-  selfHandleResponse: true,
+  selfHandleResponse: false,
 
   onProxyReq: (proxyReq, req, res) => {
-    storedCookies.forEach((cookie) => {
-      proxyReq.setHeader("cookie", `${cookie.name}=${cookie.value}`);
-    });
-
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
 
-    console.log(`Original request path: ${req.url}`);
+    const bypass = '?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
 
-    const SDK_BYPASS_PARAMS = "?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340";
-
-    let newPath = proxyReq.path;
-    if (req.url.startsWith('/src') && !newPath.includes("gd_sdk_referrer_url")) {
-      newPath = newPath + (newPath.includes('?') ? '&' : '') + SDK_BYPASS_PARAMS.substring(1);
+    // shitty bypass 
+    if (req.url.startsWith('/src') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
+      proxyReq.path += (proxyReq.path.includes('?') ? '&' : '') + bypass.slice(1);
     }
-    proxyReq.path = newPath;
 
-    console.log(`Proxying request to target: ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
+    console.log(`Proxying request: ${req.url} -> ${proxyReq.path}`);
   },
 
   onProxyRes: (proxyRes, req, res) => {
-    if (proxyRes.headers.location) {
-      const originalLocation = proxyRes.headers.location;
-      console.log(`Original redirect location: ${originalLocation}`);
+    const loc = proxyRes.headers.location;
 
-      const BLOCKED_STRING_IN_REDIRECT = "https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";
+    if (loc) {
+      console.log(`Redirect found: ${loc}`);
 
-      try {
-        if (originalLocation.includes(BLOCKED_STRING_IN_REDIRECT)) {
-          console.warn(`Blocked redirect to: ${originalLocation} (contains blocked string)`);
-          delete proxyRes.headers.location;
-          res.writeHead(200, { 'Content-Type': 'text/plain' });
-          res.end("Game not available here. This content is blocked via proxy due to an unauthorized domain redirect.");
-          return;
-        }
-      } catch (e) {
-        console.error("Error parsing redirect URL for blocking check:", e);
+      const blockedRedirect = 'https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app';
+
+      // 
+      if (loc.includes(blockedRedirect)) {
+        console.warn(`Blocked redirect: ${loc}`);
+        delete proxyRes.headers.location;
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('Game not available here.');
+        return;
       }
 
       try {
-        const targetUrl = new URL(proxyRes.req.protocol + '//' + proxyRes.req.host + proxyRes.req.path);
-        const redirectUrl = new URL(originalLocation, targetUrl);
-        if (redirectUrl.origin === customProxy.target) {
-          const newPath = redirectUrl.pathname.replace(/^\/rvvASMiM/, '/src');
-          const newLocation = `${req.protocol}://${req.get('host')}${newPath}${redirectUrl.search}`;
-          proxyRes.headers.location = newLocation;
-          console.log(`Rewriting redirect to: ${newLocation}`);
-        } else {
-          console.log(`Redirecting to external site, not rewriting: ${originalLocation}`);
+        // so ts is so /rvvASMiM is /src 
+        const targetOrigin = `${proxyRes.req.protocol}//${proxyRes.req.host}`;
+        const fullRedirect = new URL(loc, targetOrigin);
+
+        if (fullRedirect.origin === proxy.target) {
+          const newPath = fullRedirect.pathname.replace(/^\/rvvASMiM/, '/src');
+          const newUrl = `${req.protocol}://${req.get('host')}${newPath}${fullRedirect.search}`;
+          proxyRes.headers.location = newUrl;
+          console.log(`Rewriting redirect: ${loc} -> ${newUrl}`);
         }
-      } catch (error) {
-        console.error("Error processing redirect location for rewriting:", error);
+      } catch (err) {
+        console.error(`Redirect rewrite error:`, err);
       }
     }
-
-    let body = [];
-    proxyRes.on('data', (chunk) => {
-      body.push(chunk);
-    });
-    proxyRes.on('end', () => {
-      let responseBody = Buffer.concat(body).toString();
-      const contentType = proxyRes.headers['content-type'] || '';
-
-      Object.keys(proxyRes.headers).forEach(function (header) {
-        if (header.toLowerCase() === 'content-length') return;
-        res.setHeader(header, proxyRes.headers[header]);
-      });
-
-      if (contentType.includes('text/html') || contentType.includes('application/javascript')) {
-         // console.log(`Attempting basic content rewrite for ${req.url}`);
-         // responseBody = responseBody.replace(/html5\.gamedistribution\.com/g, `${req.get('host')}`);
-      }
-
-      res.end(responseBody);
-    });
   },
+
   pathRewrite: {
     '^/src': '/rvvASMiM',
   },
 });
 
+// block all paths but /src
 app.use((req, res, next) => {
   if (req.url.startsWith('/src')) {
-    customProxy(req, res, next);
+    proxy(req, res, next);
   } else {
     res.status(404).send(`Cannot GET ${req.url}`);
   }
 });
-
+// random ahh mesage lmao
 app.listen(PORT, () => {
-  console.log(`FA-v2 server listening on port ${PORT}`);
+  console.log(`FA-v2 server is running at http://localhost:${PORT}`);
 });
