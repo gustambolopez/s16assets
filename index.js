@@ -10,33 +10,40 @@ app.use(cookieParser());
 
 const customProxy = createProxyMiddleware({
   target: "https://html5.gamedistribution.com",
-  changeOrigin: true, // This is crucial for the target server to correctly serve content
-  onProxyReq: (proxyReq, req, res) => { // Added req, res to onProxyReq arguments
+  changeOrigin: true,
+  onProxyReq: (proxyReq, req, res) => {
     storedCookies.forEach((cookie) => {
       proxyReq.setHeader("cookie", `${cookie.name}=${cookie.value}`);
     });
-    // Log the actual URL being sent to the target for debugging
     console.log(`Proxying request: ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
   },
   onProxyRes: (proxyRes, req, res) => {
-    // Check for redirects (3xx status codes)
     if (proxyRes.headers.location) {
       const originalLocation = proxyRes.headers.location;
       console.log(`Original redirect location: ${originalLocation}`);
 
-      // Modify the redirect location to point back to your proxy server
-      // This is the most common reason for being redirected to a "blocked" link
-      // if the target site redirects to its own domain.
+      // Define the specific blocked URL you want to prevent
+      const BLOCKED_REDIRECT_URL = "https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";
+
+      // Check if the original redirect location matches the blocked URL
+      if (originalLocation === BLOCKED_REDIRECT_URL) {
+        console.warn(`Blocked redirect to: ${originalLocation}`);
+        // Instead of redirecting, you could send a custom error message,
+        // or just let the response go through (which might show the blocked page content directly if not an actual redirect)
+        // For now, we'll actively prevent the redirect by removing the Location header
+        delete proxyRes.headers.location;
+        // Optionally, send a generic error or redirect to a safe page on your proxy
+        res.status(200).send("Game not available here due to a blocked redirect."); // Or render a custom HTML error page
+        return; // Stop further processing of this response in onProxyRes
+      }
+
+      // If it's not the specifically blocked URL, proceed with existing rewrite logic
       try {
         const targetUrl = new URL(proxyRes.req.protocol + '//' + proxyRes.req.host + proxyRes.req.path);
-        const redirectUrl = new URL(originalLocation, targetUrl); // Resolve relative redirects
+        const redirectUrl = new URL(originalLocation, targetUrl);
 
-        // Only rewrite if the redirect is to the target domain itself
-        // or a path that needs to be routed through your proxy's /src alias.
         if (redirectUrl.origin === customProxy.target) {
-            // Reconstruct the path relative to the target's base,
-            // then ensure it's rewritten to /src on your proxy
-            const newPath = redirectUrl.pathname.replace(/^\/rvvASMiM/, '/src'); // Change /rvvASMiM back to /src
+            const newPath = redirectUrl.pathname.replace(/^\/rvvASMiM/, '/src');
             const newLocation = `${req.protocol}://${req.get('host')}${newPath}${redirectUrl.search}`;
             proxyRes.headers.location = newLocation;
             console.log(`Rewriting redirect to: ${newLocation}`);
@@ -51,8 +58,6 @@ const customProxy = createProxyMiddleware({
   pathRewrite: {
     '^/src': '/rvvASMiM',
   },
-  // You might need to add secure: false if the target has certificate issues (unlikely for gamedistribution.com)
-  // secure: false,
 });
 
 app.use((req, res, next) => {
