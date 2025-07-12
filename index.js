@@ -21,7 +21,7 @@ const proxy = createProxyMiddleware({
 
     const bypass = '?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
 
-    // shitty bypass 
+    // This block correctly appends the parameters to the end of the path
     if (req.url.startsWith('/src') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
       proxyReq.path += (proxyReq.path.includes('?') ? '&' : '') + bypass.slice(1);
     }
