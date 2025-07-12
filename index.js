@@ -21,7 +21,7 @@ const customProxy = createProxyMiddleware({
   },
 });
 
-app.use((req, res, next) => {.
+app.use((req, res, next) => {
   if (req.url.startsWith('/src')) {
     customProxy(req, res, next);
   } else {
