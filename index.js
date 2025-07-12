@@ -8,70 +8,46 @@ const PORT = 5000;
 
 app.use(cookieParser());
 
+// No specific /src path; all requests to your proxy go to target
 const customProxy = createProxyMiddleware({
   target: "https://html5.gamedistribution.com",
-  changeOrigin: true,
+  changeOrigin: true, // Crucial
   ws: true,
-  selfHandleResponse: false,
-
   onProxyReq: (proxyReq, req, res) => {
     storedCookies.forEach((cookie) => {
       proxyReq.setHeader("cookie", `${cookie.name}=${cookie.value}`);
     });
-
+    // Still spoof Referer/Origin
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
-
     console.log(`Proxying request: ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
   },
-
   onProxyRes: (proxyRes, req, res) => {
-    if (proxyRes.headers.location) {
-      const originalLocation = proxyRes.headers.location;
-      console.log(`Original redirect location: ${originalLocation}`);
+    // ... (your existing CSP and X-Frame-Options modifications here) ...
 
-      // Define the specific string that, if found anywhere in the redirect URL, should trigger a block.
-      // Make sure this string is unique enough to avoid false positives.
-      const BLOCKED_STRING_IN_REDIRECT = "https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";
-
-      // Check if the original redirect location CONTAINS the blocked string
-      if (originalLocation.includes(BLOCKED_STRING_IN_REDIRECT)) {
+    // Your blocking logic (if you still want to block certain paths on the target)
+    const originalLocation = proxyRes.headers.location;
+    const BLOCKED_STRING_IN_REDIRECT = "https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";
+    if (originalLocation && originalLocation.includes(BLOCKED_STRING_IN_REDIRECT)) {
         console.warn(`Blocked redirect to: ${originalLocation} (contains blocked string)`);
-        delete proxyRes.headers.location; // Remove the Location header
+        delete proxyRes.headers.location;
         res.status(200).send("Game not available here. This content is blocked via proxy due to an unauthorized domain redirect.");
-        return; // Stop further processing for this response
-      }
+        return;
+    }
 
-      // If it's not the specifically blocked URL, proceed with existing rewrite logic for internal redirects
-      try {
-        const targetUrl = new URL(proxyRes.req.protocol + '//' + proxyRes.req.host + proxyRes.req.path);
-        const redirectUrl = new URL(originalLocation, targetUrl);
-
-        if (redirectUrl.origin === customProxy.target) {
-            const newPath = redirectUrl.pathname.replace(/^\/rvvASMiM/, '/src');
-            const newLocation = `${req.protocol}://${req.get('host')}${newPath}${redirectUrl.search}`;
-            proxyRes.headers.location = newLocation;
-            console.log(`Rewriting redirect to: ${newLocation}`);
-        } else {
-            console.log(`Redirecting to external site, not rewriting: ${originalLocation}`);
-        }
-      } catch (error) {
-        console.error("Error processing redirect location for rewriting:", error);
-      }
+    // ONLY rewrite redirects if they point back to the target's original domain
+    // This makes sure internal Gamedistribution redirects stay within the proxied context
+    if (originalLocation && originalLocation.startsWith(proxyRes.req.protocol + '//' + proxyRes.req.host)) {
+        // Replace the target's domain with your proxy's domain in the redirect
+        proxyRes.headers.location = originalLocation.replace(proxyRes.req.protocol + '//' + proxyRes.req.host, `${req.protocol}://${req.get('host')}`);
+        console.log(`Rewriting internal redirect to: ${proxyRes.headers.location}`);
     }
   },
-  pathRewrite: {
-    '^/src': '/rvvASMiM',
-  },
+  // No pathRewrite needed if you're proxying the entire domain
 });
 
-app.use((req, res, next) => {
-  if (req.url.startsWith('/src')) {
-    customProxy(req, res, next);
-  } else {
-    res.status(404).send(`Cannot GET ${req.url}`);
-  }
-});
+// Apply the proxy to all incoming requests
+app.use('/', customProxy); // All requests to your proxy go to gamedistribution.com
 
 app.listen(PORT, () => {
   console.log(`FA-v2 server listening on port ${PORT}`);
