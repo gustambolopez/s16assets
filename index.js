@@ -9,7 +9,7 @@ const PORT = 5000;
 app.use(cookieParser());
 
 const customProxy = createProxyMiddleware({
-  target: "https://html5.gamedistribution.com",
+  target: "https://html5.gamedistribution.com?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340",
   changeOrigin: true,
   ws: true,
   selfHandleResponse: false, // Keeping this false as per your request for 'no custom logic'
