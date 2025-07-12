@@ -19,12 +19,16 @@ const proxy = createProxyMiddleware({
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
 
-    const bypass = '?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
+    const bypassParams = 'gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
 
-    // This block correctly appends the parameters to the end of the path
-    if (req.url.startsWith('/src') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
-      proxyReq.path += (proxyReq.path.includes('?') ? '&' : '') + bypass.slice(1);
+    // --- MODIFIED: Ensure parameters are always at the end of the path, overriding others ---
+    if (req.url.startsWith('/src')) {
+      // Split the path to isolate the pathname part (before any '?')
+      const pathname = proxyReq.path.split('?')[0]; 
+      // Reconstruct proxyReq.path with only our desired parameters
+      proxyReq.path = `${pathname}?${bypassParams}`;
     }
+    // --- END MODIFIED ---
 
     console.log(`Proxying request: ${req.url} -> ${proxyReq.path}`);
   },
