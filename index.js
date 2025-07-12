@@ -1,29 +1,54 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-// s16dih
+
 const app = express();
 const PORT = 5000;
-const storedCookies = [];
+const storedCookies = []; // This variable is not used in the current code
 
 app.use(cookieParser());
 
-// middleware 
+// Define the bypass parameters once
+const bypassParams = 'gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
+
+// --- NEW CLIENT-SIDE REDIRECTION MIDDLEWARE ---
+// This middleware runs BEFORE the proxy.
+// It checks if the URL starts with /src and does NOT already contain our specific parameters.
+// If not, it sends a 302 redirect to the client's browser, appending the parameters.
+app.use((req, res, next) => {
+  // Check if the URL starts with /src AND does not already contain the 'gd_sdk_referrer_url' parameter
+  if (req.url.startsWith('/src') && !req.url.includes(bypassParams.split('=')[0])) {
+    const currentUrl = new URL(`${req.protocol}://${req.get('host')}${req.originalUrl}`);
+    
+    // Construct the new URL: origin + pathname (which includes trailing slash if present) + our parameters
+    // Example: /src/game-id -> /src/game-id?params
+    // Example: /src/game-id/ -> /src/game-id/?params
+    const redirectUrl = `${currentUrl.origin}${currentUrl.pathname}?${bypassParams}`;
+
+    console.log(`Client-side redirecting: ${req.originalUrl} -> ${redirectUrl}`);
+    return res.redirect(302, redirectUrl); // Send the redirect response to the browser
+  }
+  next(); // If parameters are already present or not a /src path, pass to next middleware (the proxy)
+});
+// --- END NEW CLIENT-SIDE REDIRECTION MIDDLEWARE ---
+
+// The main proxy middleware
 const proxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com',
   changeOrigin: true,
   ws: true,
-  selfHandleResponse: false,
+  selfHandleResponse: false, // Keeping this as false, as per your request
 
   onProxyReq: (proxyReq, req, res) => {
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
 
-    const bypass = '?gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
-
-    // shitty bypass 
-    if (req.url.startsWith('/src') && !proxyReq.path.includes('gd_sdk_referrer_url')) {
-      proxyReq.path += (proxyReq.path.includes('?') ? '&' : '') + bypass.slice(1);
+    // This block ensures the parameters are on the URL sent to the target server.
+    // If the client-side redirect worked, req.url will already have them,
+    // but this acts as a safeguard and ensures the proxy's request is consistent.
+    if (req.url.startsWith('/src')) {
+      const pathname = proxyReq.path.split('?')[0]; 
+      proxyReq.path = `${pathname}?${bypassParams}`; // Force our specific parameters
     }
 
     console.log(`Proxying request: ${req.url} -> ${proxyReq.path}`);
@@ -37,7 +62,6 @@ const proxy = createProxyMiddleware({
 
       const blockedRedirect = 'https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app';
 
-      // 
       if (loc.includes(blockedRedirect)) {
         console.warn(`Blocked redirect: ${loc}`);
         delete proxyRes.headers.location;
@@ -47,12 +71,13 @@ const proxy = createProxyMiddleware({
       }
 
       try {
-        // so ts is so /rvvASMiM is /src 
         const targetOrigin = `${proxyRes.req.protocol}//${proxyRes.req.host}`;
         const fullRedirect = new URL(loc, targetOrigin);
 
         if (fullRedirect.origin === proxy.target) {
+          // This rewrites /rvvASMiM back to /src for the client
           const newPath = fullRedirect.pathname.replace(/^\/rvvASMiM/, '/src');
+          // This line is from your working code: it preserves any existing query parameters from the target's redirect
           const newUrl = `${req.protocol}://${req.get('host')}${newPath}${fullRedirect.search}`;
           proxyRes.headers.location = newUrl;
           console.log(`Rewriting redirect: ${loc} -> ${newUrl}`);
@@ -68,7 +93,7 @@ const proxy = createProxyMiddleware({
   },
 });
 
-// block all paths but /src
+// Middleware to block all paths except those starting with /src
 app.use((req, res, next) => {
   if (req.url.startsWith('/src')) {
     proxy(req, res, next);
@@ -76,7 +101,7 @@ app.use((req, res, next) => {
     res.status(404).send(`Cannot GET ${req.url}`);
   }
 });
-// random ahh mesage lmao
+
 app.listen(PORT, () => {
   console.log(`FA-v2 server is running at http://localhost:${PORT}`);
 });
