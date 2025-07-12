@@ -10,21 +10,17 @@ app.use(cookieParser());
 
 const customProxy = createProxyMiddleware({
   target: "https://html5.gamedistribution.com",
-  changeOrigin: true, // Remains true to change the Host header sent to target
-  ws: true,           // Important for many games that use WebSockets
-  selfHandleResponse: false, // Keep this false unless you plan to modify response body
+  changeOrigin: true,
+  ws: true,
+  selfHandleResponse: false,
 
   onProxyReq: (proxyReq, req, res) => {
     storedCookies.forEach((cookie) => {
       proxyReq.setHeader("cookie", `${cookie.name}=${cookie.value}`);
     });
 
-    // --- ADDED/MODIFIED FOR SPOOFING ---
-    // Spoof Referer and Origin headers to make the request appear to come
-    // from the target domain itself. This can sometimes bypass server-side checks.
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
-    // --- END SPOOFING ADDITIONS ---
 
     console.log(`Proxying request: ${proxyReq.protocol}//${proxyReq.host}${proxyReq.path}`);
   },
@@ -34,23 +30,16 @@ const customProxy = createProxyMiddleware({
       const originalLocation = proxyRes.headers.location;
       console.log(`Original redirect location: ${originalLocation}`);
 
-      const BLOCKED_REDIRECT_BASE_URL = "https://html5.api.gamedistribution.com/blocked.html";
+      // Define the specific string that, if found anywhere in the redirect URL, should trigger a block.
+      // Make sure this string is unique enough to avoid false positives.
+      const BLOCKED_STRING_IN_REDIRECT = "https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";
 
-      try {
-        const redirectUrlObject = new URL(originalLocation);
-        const redirectBaseUrl = `${redirectUrlObject.origin}${redirectUrlObject.pathname}`;
-
-        if (redirectBaseUrl === BLOCKED_REDIRECT_BASE_URL) {
-          console.warn(`Blocked redirect to: ${originalLocation} (matched base URL)`);
-          delete proxyRes.headers.location;
-          // Optionally, set the status to 200 OK to indicate "success"
-          // but send a custom message, to prevent the browser from thinking
-          // there was a redirect it couldn't follow.
-          res.status(200).send("Game not available here due to a blocked redirect. This content is not allowed via proxy.");
-          return;
-        }
-      } catch (e) {
-        console.error("Error parsing redirect URL for blocking check:", e);
+      // Check if the original redirect location CONTAINS the blocked string
+      if (originalLocation.includes(BLOCKED_STRING_IN_REDIRECT)) {
+        console.warn(`Blocked redirect to: ${originalLocation} (contains blocked string)`);
+        delete proxyRes.headers.location; // Remove the Location header
+        res.status(200).send("Game not available here. This content is blocked via proxy due to an unauthorized domain redirect.");
+        return; // Stop further processing for this response
       }
 
       // If it's not the specifically blocked URL, proceed with existing rewrite logic for internal redirects
@@ -70,7 +59,6 @@ const customProxy = createProxyMiddleware({
         console.error("Error processing redirect location for rewriting:", error);
       }
     }
-    // No `return` here, allowing the response to continue to the client
   },
   pathRewrite: {
     '^/src': '/rvvASMiM',
