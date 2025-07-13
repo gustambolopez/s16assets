@@ -1,6 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import { createProxyMiddleware } from 'http-proxy-middleware';
+import { createProxyMiddleware } = from 'http-proxy-middleware';
 
 const app = express();
 const PORT = 5000;
@@ -11,24 +11,37 @@ app.use(cookieParser());
 // --- Middleware to block specific paths and URLs ---
 // This middleware runs BEFORE the proxy, so it can intercept and block specific requests.
 app.use((req, res, next) => {
+    console.log(`Incoming request URL: ${req.url}`);
+    console.log(`Incoming request path: ${req.path}`);
+
     // Block the root path '/'
     if (req.path === '/') {
-        console.log(`Blocking request to root path: ${req.path}`);
-        return res.status(404).send(`Cannot GET ${req.path}`);
+        console.log(`Blocking: Rule 'root path' matched. req.path=${req.path}`);
+        return res.status(404).send(`Cannot GET ${req.path} (Blocked by root path rule)`);
+    } else {
+        console.log(`Not blocking by 'root path' rule.`);
     }
 
     // Block any URL that contains '?search='
-    // This checks the full original URL including query parameters
     if (req.url.includes('?search=')) {
-        console.log(`Blocking request containing '?search=': ${req.url}`);
-        return res.status(404).send(`Cannot GET ${req.url}`);
+        console.log(`Blocking: Rule '?search=' matched. req.url=${req.url}`);
+        return res.status(404).send(`Cannot GET ${req.url} (Blocked by ?search= rule)`);
+    } else {
+        console.log(`Not blocking by '?search=' rule.`);
     }
 
-    // 🆕 NEW: Block /src links that don't contain the specific referrer URL
+    // Block /src links that don't contain the specific referrer URL
     const requiredReferrerParam = '?gd_sdk_referrer_url=https://yjgames.gamedistribution.com/';
-    if (req.url.startsWith('/src') && !req.url.includes(requiredReferrerParam)) {
-        console.log(`Blocking /src request without required referrer: ${req.url}`);
-        return res.status(404).send(`Cannot GET ${req.url}`);
+    const startsWithSrc = req.url.startsWith('/src');
+    const includesReferrer = req.url.includes(requiredReferrerParam);
+
+    console.log(`Checking 'required referrer' rule for ${req.url}: startsWithSrc=${startsWithSrc}, includesReferrer=${includesReferrer}`);
+
+    if (startsWithSrc && !includesReferrer) {
+        console.log(`Blocking: Rule 'required referrer' matched. req.url=${req.url}`);
+        return res.status(404).send(`Cannot GET ${req.url} (Blocked by missing referrer rule)`);
+    } else {
+        console.log(`Not blocking by 'required referrer' rule.`);
     }
     // --- END NEW RULE ---
 
