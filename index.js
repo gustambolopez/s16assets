@@ -1,7 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-// Removed: zlib import is no longer needed since selfHandleResponse is false
 
 const app = express();
 const PORT = 5000;
@@ -9,21 +8,33 @@ const storedCookies = []; // This variable is not used in the current code
 
 app.use(cookieParser());
 
-// Removed: bypassParams constant is no longer defined or used
-
-// Removed: Client-side redirection middleware that was automatically adding bypass parameters
+// --- NEW: Middleware to block main page and URLs containing '?search=' ---
+// This middleware runs BEFORE the proxy, so it can intercept and block specific paths.
+app.use((req, res, next) => {
+    // Block the root path '/'
+    if (req.path === '/') {
+        console.log(`Blocking request to root path: ${req.path}`);
+        return res.status(404).send(`Cannot GET ${req.path}`);
+    }
+    // Block any URL that contains '?search='
+    // This checks the full original URL including query parameters
+    if (req.url.includes('?search=')) {
+        console.log(`Blocking request containing '?search=': ${req.url}`);
+        return res.status(404).send(`Cannot GET ${req.url}`);
+    }
+    next(); // If not blocked, pass control to the next middleware (the proxy)
+});
+// --- END NEW MIDDLEWARE ---
 
 const proxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com',
   changeOrigin: true,
   ws: true,
-  selfHandleResponse: false, // Reverted to false, as per your request
+  selfHandleResponse: false, // Keeping this as false, as per your request
 
   onProxyReq: (proxyReq, req, res) => {
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
-
-    // Removed: Any logic that added bypass parameters to proxyReq.path
 
     console.log(`Proxying request: ${req.url} -> ${proxyReq.path}`);
   },
@@ -61,8 +72,6 @@ const proxy = createProxyMiddleware({
       }
     }
     // No content rewriting here, as selfHandleResponse is false.
-    // This means the original content from the target will be passed through,
-    // including any http:// URLs, which may cause Mixed Content errors.
   },
 
   pathRewrite: {
@@ -70,7 +79,7 @@ const proxy = createProxyMiddleware({
   },
 });
 
-// All requests will now go through the proxy.
+// All requests that pass the initial blocking middleware will now go through the proxy.
 app.use(proxy); 
 
 app.listen(PORT, () => {
