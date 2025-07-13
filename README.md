@@ -1,5 +1,4 @@
-# arsenic-deploy
-A deployable version of arsenic for hosting services.
+# games repo for s16.games
 
 [![Deploy on Railway](https://binbashbanana.github.io/deploy-buttons/buttons/remade/railway.svg)](https://railway.app/new/template?template=https://github.com/gustambolopez/s16gameapitest)
 [![Deploy to Vercel](https://binbashbanana.github.io/deploy-buttons/buttons/remade/vercel.svg)](https://vercel.com/new/clone?repository-url=https://github.com/gustambolopez/s16gameapitest)
