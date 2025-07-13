@@ -11,7 +11,7 @@ app.use(cookieParser());
 // Define the bypass parameters once
 const bypassParams = 'gd_sdk_referrer_url=https://y8.com/&key=10322731&value=194340';
 
-// --- NEW CLIENT-SIDE REDIRECTION MIDDLEWARE ---
+// --- CLIENT-SIDE REDIRECTION MIDDLEWARE ---
 // This middleware runs BEFORE the proxy.
 // It checks if the URL starts with /src and does NOT already contain our specific parameters.
 // If not, it sends a 302 redirect to the client's browser, appending the parameters.
@@ -30,9 +30,9 @@ app.use((req, res, next) => {
   }
   next(); // If parameters are already present or not a /src path, pass to next middleware (the proxy)
 });
-// --- END NEW CLIENT-SIDE REDIRECTION MIDDLEWARE ---
+// --- END CLIENT-SIDE REDIRECTION MIDDLEWARE ---
 
-// The main proxy middleware
+// The main proxy middleware - this will now handle all incoming requests
 const proxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com',
   changeOrigin: true,
@@ -46,7 +46,7 @@ const proxy = createProxyMiddleware({
     // This block ensures the parameters are on the URL sent to the target server.
     // If the client-side redirect worked, req.url will already have them,
     // but this acts as a safeguard and ensures the proxy's request is consistent.
-    if (req.url.startsWith('/src')) {
+    if (req.url.startsWith('/src')) { // Still applies only for /src paths
       const pathname = proxyReq.path.split('?')[0]; 
       proxyReq.path = `${pathname}?${bypassParams}`; // Force our specific parameters
     }
@@ -89,18 +89,13 @@ const proxy = createProxyMiddleware({
   },
 
   pathRewrite: {
-    '^/src': '/rvvASMiM',
+    '^/src': '/rvvASMiM', // This rewrite rule will only apply when the path starts with /src
   },
 });
 
-// Middleware to block all paths except those starting with /src
-app.use((req, res, next) => {
-  if (req.url.startsWith('/src')) {
-    proxy(req, res, next);
-  } else {
-    res.status(404).send(`Cannot GET ${req.url}`);
-  }
-});
+// Since the path blocking middleware is removed, all requests will now go through the proxy.
+// It is directly applied here:
+app.use(proxy); 
 
 app.listen(PORT, () => {
   console.log(`FA-v2 server is running at http://localhost:${PORT}`);
