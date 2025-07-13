@@ -8,23 +8,33 @@ const storedCookies = []; // This variable is not used in the current code
 
 app.use(cookieParser());
 
-// --- NEW: Middleware to block main page and URLs containing '?search=' ---
-// This middleware runs BEFORE the proxy, so it can intercept and block specific paths.
+// --- Middleware to block specific paths and URLs ---
+// This middleware runs BEFORE the proxy, so it can intercept and block specific requests.
 app.use((req, res, next) => {
     // Block the root path '/'
     if (req.path === '/') {
         console.log(`Blocking request to root path: ${req.path}`);
         return res.status(404).send(`Cannot GET ${req.path}`);
     }
+
     // Block any URL that contains '?search='
     // This checks the full original URL including query parameters
     if (req.url.includes('?search=')) {
         console.log(`Blocking request containing '?search=': ${req.url}`);
         return res.status(404).send(`Cannot GET ${req.url}`);
     }
+
+    // 🆕 NEW: Block /src links that don't contain the specific referrer URL
+    const requiredReferrerParam = '?gd_sdk_referrer_url=https://yjgames.gamedistribution.com/';
+    if (req.url.startsWith('/src') && !req.url.includes(requiredReferrerParam)) {
+        console.log(`Blocking /src request without required referrer: ${req.url}`);
+        return res.status(404).send(`Cannot GET ${req.url}`);
+    }
+    // --- END NEW RULE ---
+
     next(); // If not blocked, pass control to the next middleware (the proxy)
 });
-// --- END NEW MIDDLEWARE ---
+// --- END BLOCKING MIDDLEWARE ---
 
 const proxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com',
