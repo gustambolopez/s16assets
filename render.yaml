@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: arsenic
+    name: s16assets
     env: node
     buildCommand: "npm install"
     startCommand: "node index.js"
