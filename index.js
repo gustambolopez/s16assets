@@ -43,13 +43,10 @@ const proxy = createProxyMiddleware({
     proxyReq.setHeader('Referer', 'https://html5.gamedistribution.com/');
     proxyReq.setHeader('Origin', 'https://html5.gamedistribution.com');
 
-    // This block ensures the parameters are on the URL sent to the target server.
-    // If the client-side redirect worked, req.url will already have them,
-    // but this acts as a safeguard and ensures the proxy's request is consistent.
-    if (req.url.startsWith('/src')) { // Still applies only for /src paths
-      const pathname = proxyReq.path.split('?')[0]; 
-      proxyReq.path = `${pathname}?${bypassParams}`; // Force our specific parameters
-    }
+    // --- BYPASS PARAMS LOGIC REMOVED FROM ONPROXYREQ ---
+    // The client-side redirect now handles ensuring the URL has these parameters.
+    // So, no need to modify proxyReq.path here for bypassParams.
+    // --- END REMOVED ---
 
     console.log(`Proxying request: ${req.url} -> ${proxyReq.path}`);
   },
@@ -89,12 +86,11 @@ const proxy = createProxyMiddleware({
   },
 
   pathRewrite: {
-    '^/src': '/rvvASMiM', // This rewrite rule will only apply when the path starts with /src
+    '^/src': '/rvvASMiM', // This rewrite rule will still apply when the path starts with /src
   },
 });
 
-// Since the path blocking middleware is removed, all requests will now go through the proxy.
-// It is directly applied here:
+// All requests will now go through the proxy.
 app.use(proxy); 
 
 app.listen(PORT, () => {
