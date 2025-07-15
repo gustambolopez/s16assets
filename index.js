@@ -1,1 +1,40 @@
-import express from"express";import cookieParser from"cookie-parser";import{createProxyMiddleware}from"http-proxy-middleware";const app=express(),PORT=5e3,storedCookies=[];app.use(cookieParser()),app.use(((e,o,t)=>"/"===e.path?(console.log(`Blocking request to root path: ${e.path}`),o.status(404).send(`Cannot GET ${e.path}`)):e.url.includes("?search=")?(console.log(`Blocking request containing '?search=': ${e.url}`),o.status(404).send(`Cannot GET ${e.url}`)):void t()));const proxy=createProxyMiddleware({target:"https://html5.gamedistribution.com",changeOrigin:!0,ws:!0,selfHandleResponse:!1,onProxyReq:(e,o,t)=>{e.setHeader("Referer","https://html5.gamedistribution.com/"),e.setHeader("Origin","https://html5.gamedistribution.com"),console.log(`Proxying request: ${o.url} -> ${e.path}`)},onProxyRes:(e,o,t)=>{const r=e.headers.location;if(r){console.log(`Redirect found: ${r}`);const s="https://html5.api.gamedistribution.com/blocked.html?domain=s16apitest.vercel.app";if(r.includes(s))return console.warn(`Blocked redirect: ${r}`),delete e.headers.location,t.writeHead(200,{"Content-Type":"text/plain"}),void t.end("Game not available here.");try{const t=`${e.req.protocol}//${e.req.host}`,s=new URL(r,t);if(s.origin===proxy.target){const t=s.pathname.replace(/^\/rvvASMiM/,"/id"),i=`${o.protocol}://${o.get("host")}${t}${s.search}`;e.headers.location=i,console.log(`Rewriting redirect: ${r} -> ${i}`)}}catch(e){console.error("Redirect rewrite error:",e)}}},pathRewrite:{"^/id":"/rvvASMiM"}});app.use(proxy),app.listen(5e3,(()=>{console.log("FA-v2 server is running at http://localhost:5000")}));
+import express from 'express'
+import cookieParser from 'cookie-parser'
+import { createProxyMiddleware } from 'http-proxy-middleware'
+
+const app = express()
+const port = 5000
+
+app.use(cookieParser())
+
+// middleware
+const Proxy = createProxyMiddleware({
+  target: 'https://velara.cc',
+  changeOrigin: true,
+  ws: true,
+  selfHandleResponse: false,
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`sending request to velara: ${req.url} -> ${proxyReq.path}`)
+  },
+  pathRewrite: {
+    '^/assets/game-imgs/': '/img/',
+    '^/hosted/': '/g/',
+  },
+})
+
+// routes
+app.use((req, res, next) => {
+
+
+  if (req.url.includes('/assets/game-imgs/') || req.url.includes('/hosted/')) {
+    return Proxy(req, res, next)
+  }
+
+  // fallback 
+  console.log(`Cannot get ${req.url}`)
+  res.status(404).send(`Cannot get ${req.url} `)
+})
+
+app.listen(port, () => {
+console.log(`listening on  http://localhost:${port}`)
+})
