@@ -14,27 +14,24 @@ const Proxy = createProxyMiddleware({
   ws: true,
   selfHandleResponse: false,
   onProxyReq: (proxyReq, req, res) => {
-    console.log(`sending request to velara: ${req.url} -> ${proxyReq.path}`)
   },
   pathRewrite: {
-    '^/assets/game-imgs/': '/img/',
-    '^/hosted/': '/g/',
+    '^/img/': '/assets/game-imgs/', 
+    '^/g/': '/hosted/',          
   },
 })
 
 // routes
 app.use((req, res, next) => {
-
-
-  if (req.url.includes('/assets/game-imgs/') || req.url.includes('/hosted/')) {
-    return Proxy(req, res, next)
+  if (req.url.startsWith('/img/') || req.url.startsWith('/g/')) {
+    return Proxy(req, res, next) 
   }
 
-  // fallback 
+  // fallback
   console.log(`Cannot get ${req.url}`)
   res.status(404).send(`Cannot get ${req.url} `)
 })
 
 app.listen(port, () => {
-console.log(`listening on  http://localhost:${port}`)
+console.log(`listening on  http://localhost:${port} http://127.0.0.1:${port}`)
 })
