@@ -14,16 +14,11 @@ const Proxy = createProxyMiddleware({
   ws: true,
   selfHandleResponse: false,
   onProxyReq: (proxyReq, req, res) => {
-  },
-  pathRewrite: {
-    '^/img/': '/assets/game-imgs/', 
-    '^/g/': '/hosted/',          
-  },
 })
 
 // routes
 app.use((req, res, next) => {
-  if (req.url.startsWith('/img/') || req.url.startsWith('/g/')) {
+  if (req.url.startsWith('/assets/game-imgs') || req.url.startsWith('/hosted/')) {
     return Proxy(req, res, next) 
   }
 
