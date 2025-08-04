@@ -11,7 +11,7 @@ app.use(cookieParser())
 const gameproxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com/',
   changeOrigin: true,
-  selfHandleResponse: true,  // we will handle response manually
+  selfHandleResponse: true,
 
   onProxyReq(proxyReq, req) {
     if (cookies.length) {
@@ -24,14 +24,20 @@ const gameproxy = createProxyMiddleware({
   },
 
   onProxyRes(proxyRes, req, res) {
+    // remove content-encoding header to avoid gzipped response download issue
+    delete proxyRes.headers['content-encoding']
+
+    // rewrite location header if present
     const location = proxyRes.headers['location']
     if (location) {
-      // remove the flag from the location header if present
-      const newLocation = location.replace(/\?gd_sdk_referrer_url=yjgames\.gamedistribution\.com/, '')
-      proxyRes.headers['location'] = newLocation
+      proxyRes.headers['location'] = location.replace(/\?gd_sdk_referrer_url=yjgames\.gamedistribution\.com/, '')
     }
 
-    // pipe the proxied response to client
+    // set headers to response
+    Object.entries(proxyRes.headers).forEach(([key, value]) => {
+      res.setHeader(key, value)
+    })
+
     proxyRes.pipe(res)
   }
 })
