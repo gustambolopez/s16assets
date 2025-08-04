@@ -8,6 +8,16 @@ const port = 8080
 
 app.use(cookieParser())
 
+// middleware to redirect if flag missing
+app.use((req, res, next) => {
+  const url = new URL(req.originalUrl, 'http://dummy')
+  if (!url.searchParams.has('gd_sdk_referrer_url')) {
+    url.searchParams.set('gd_sdk_referrer_url', 'yjgames.gamedistribution.com')
+    return res.redirect(url.pathname + url.search)
+  }
+  next()
+})
+
 const gameproxy = createProxyMiddleware({
   target: 'https://html5.gamedistribution.com/',
   changeOrigin: true,
@@ -16,11 +26,8 @@ const gameproxy = createProxyMiddleware({
       const cookieStr = cookies.map(c => `${c.name}=${c.value}`).join('; ')
       proxyReq.setHeader('cookie', cookieStr)
     }
-
-    const url = new URL(req.originalUrl, 'http://dummy')
-    url.searchParams.set('gd_sdk_referrer_url', 'yjgames.gamedistribution.com')
-
-    proxyReq.path = url.pathname + url.search
+    // path already has the flag from redirect
+    proxyReq.path = req.originalUrl
   }
 })
 
